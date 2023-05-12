@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <%- include('includes/head') %>
+  </head>
+  <body>
+    <!-- 일부 html 렌더링 시, <%- %> 사용, EJS 함수 incldue, 다른 EJS파일에 대한 경로 지정, 구문 분석-->
+    <!-- "<-include('includes/header', {name: vlaue})>"" 추가 객체 전달도 가능함, %는 오류로 삭제 -->
+    <%- include('includes/header') %>
+    <%- include('includes/side-drawer') %>
+    <main>
+      <h1>Page not found!</h1>
+      <p>
+        Unfortunately, we weren't able to find this page.
+      </p>
+    </main>
+  </body>
+</html>
