@@ -1,95 +1,59 @@
-# 익스프레스 템플릿을 활용한 정적 & 동적 페이지 콘텐츠 (섹션19-20)
+# 동적 경로, 고유ID 생성, 세부데이터 로드, 에러 핸들링, 코드 리팩토링 등 (섹션20)
 
-## 정적페이지 연결 (css, js, image 등)
+## 동적 경로 설정
 
-1. 'public' 폴더 생성
-2. 'public' 폴더로 정적 파일(css, js, image) 이동
-3. express 라이브러리 실행 | 'app.use(express.static("public))'
-4. 브라우저 로딩 시, 'public' 폴더 내 파일을 우선적으로 찾음.
+1.  url에서 '/:'을 사용해서 식별자 설정
 
-```javascript
-// 'public' 폴더 생성 후 css, js, image 파일 등 이동 후 static 사용
-app.use(express.static("public"));
+```html
+<!-- 식별자 /:id 값 설정 'r1' -->
+<a href="/restaurants/r1">View Restaurant</a>
 ```
 
-## 사용자 입력 양식 데이터 (form data) 저장
+```javascript
+app.get("/restaurants/:id", function (req, res) {
+  // URL id값 가져와서 저장.
+  const restaurantId = req.params.id;
+  // render에 추가 key:value값 전달
+  res.render('restaurant-detail', {rid : restaurantId})
+}
+```
 
-### 처리 순서
+```html
+<!-- 'restaurant-detail' 에서 식별자 랜더링 -->
+<h1>TITLE OF THE RESTAURANT <%= rid %></h1>
+```
 
-1. 'app.use(express.urlencoded({ extended: false }));' | (구문분석 미들웨어 설정)
-2. 'const restaurant = req.body;' | (사용자 입력 양식 데이터 저장)
-3. const filePath = path.join(\_\_dirname, "data", "restaurants.json");' | (파일 경로 설정 (path 모듈 필요))
-4. 'const fileData = fs.readFileSync(filePath);' | (경로 데이터 읽기, (fs 모듈 필요))
-5. 'const storedRestaurants = JSON.parse(fileData);' | (읽은 파일 데이털르 JSON 형태로 변환)
-6. 'storedRestaurants.push(restaurant);' | (사용자 입력 데이터를 배열에 추가)
-7. 'fs.writeFileSync(filePath, JSON.stringify(storedRestaurants));' | (변경된 데이터를 JSON 형태로 변환 후 파일에 저장)
+## 각 데이터의 고유 ID 생성, 동적라우터 연결
+
+- 'npm install uuid' : uuid 패키지 설치 (고유 ID 생성기)
+- 'const uuid = require('uuid') : 설치한 패키지 추가
+- 'restaurant.id' : 객체에 필드를 추가, 또는 접근 (JavaScript 지원 기능)
+-
 
 ```javascript
-app.use(express.urlencoded({ extended: false })); // 구문분석 미들웨어
-app.post("/restaurants", function (req, res) {
-  const restaurant = req.body; // request body의 모든 내용을 가져와서 저장, 해당 json파일 생성
+app.post("/recommend", function (req, res) {
+  // 폼 사용자 입력값(req.body)를 통째로 먼저 저장
+  // 구문분석 미들웨어 필요 app.use(express.urlencoded({extended: false}))
+  const restaurant = req.body;
+
+  // 동적라우터 고유 id만들기 (required('uuid))
+  // 존재하지 않는 id property(속성)에 접근 및 property(속성) 생성 (JavaScript 지원 기능)
+  restaurant.id = uuid.v4();
+
+  // 6) res.redirect (폼 제출 후 페이지 이동)
   const filePath = path.join(__dirname, "data", "restaurants.json"); // 경로생성 required('path')
   const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
   const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
   storedRestaurants.push(restaurant); // 변환한 자바데이터로 push
   fs.writeFileSync(filePath, JSON.stringify(storedRestaurants)); // push포함 제이슨으로 변환
+
+  res.redirect("/confirm");
 });
 ```
-
-## EJS 템플릿 엔진에 대한 이해와 활용 및 응용
-
-### 처리 순서
-
-1. 'npm install ejs' | ejs 패키지 설치
-2. 'app.set('view engine', 'ejs') | Express 애플리케이션에서 뷰 엔진으로 EJS를 설정
-3. 'app.set('views', path.join(\_\_dirname,'views')) | 템플릿 파일이 위치한 디렉토리 경로 설정
-4. `.html` 파일을 `.ejs`로 확장자 변경
-
-5. EJS 템플릿 파일 랜더링
-
-```javascript
-// EJS 템플릿 적용
-app.get("/", function (req, res) {
-  res.render("index"); // 'index.ejs' 템플릿 파일 렌더링
-});
-
-// EJS 템플릿 미적용
-app.get("/", function (req, res) {
-  const htmlFilePath = path.join(__dirname, "views", "index.html");
-  res.sendFile(htmlFilePath);
-});
-```
-
-6. 템플릿에 데이터 주입 <%= %>
 
 ```html
-<p>We found <%= numberOfRestaurants %> restaurants.</p>
-```
-
-```javascript
-// 정적 데이터 주입
-app.get("/restaurants", function (req, res) {
-  res.render("restaurant", { numberOfRestaurants: 2 });
-});
-
-// 동적 데이터 주입
-app.get("/restaurants", function (req, res) {
-  const filePath = path.join(__dirname, "data", "restaurants.json");
-
-  const fileData = fs.readFileSync(filePath);
-  const storedRestaurants = JSON.parse(fileData);
-
-  res.render("restaurant", { numberOfRestaurants: storedRestaurants.length });
-});
-```
-
-7. 템플릿에서 반복문 사용하여 list 생성 <% %>
-
-```html
-<ul id="restaurant-list">
-  <% for (const restaurant of restaurants) { %>
+<li class="restaurant-item">
   <article>
-    <!-- 단일값으로 재출력 -->
     <h2><%= restaurant.name %></h2>
     <div class="restaurant-meta">
       <p><%= restaurant.cuisine %></p>
@@ -97,95 +61,231 @@ app.get("/restaurants", function (req, res) {
     </div>
     <p><%= restaurant.description %></p>
     <div class="restaurant-actions">
-      <a href="<%=restaurant.website %>">View Website</a>
+      <!-- a태그에 'restaurant.id' 추가, 동적 라우터 생성 -->
+      <a href="/restaurants/<%= restaurant.id %>">View Restaurant</a>
     </div>
   </article>
-  <% } %>
-</ul>
+</li>
 ```
 
-```javascript
-app.get("/restaurants", function (req, res) {
-  const filePath = path.join(__dirname, "data", "restaurants.json");
+## 세부데이터 로드 (반복문과 조건문 사용) & 에러핸들링
 
-  const fileData = fs.readFileSync(filePath);
-  const storedRestaurants = JSON.parse(fileData);
+1.  url/:id 값 저장
+2.  for문 내 if문 사용하여 일치되는 값 반환
+3.  'return'을 사용하여 조건 일치할 경우, 함수 완료(종료)시킴.
+4.  'render('/root', key:value)'로 해당 세부데이터 전달
 
-  res.render("restaurant", {
-    numberOfRestaurants: storedRestaurants.length, // 첫번째 key/value 쌍.
-    restaurants: storedRestaurants, // 두번째 key/value 쌍 전달.
-  });
+```JavaScript
+app.get("/restaurants/:id", function (req, res) {
+  // 1) url/:id 값 저장
+  const restaurantId = req.params.id;
+
+  // 2) 데이터 읽기
+  const filePath = path.join(__dirname, "data", "restaurants.json"); // 경로생성 required('path')
+  const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
+  const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
+
+  // 3) 반복문으로 각 데이터 읽기
+  for (const restaurant of storedRestaurants) {
+    // 4) 조건문으로 해당 레스토랑의 id가 일치 시, 그 값을 반환(return)
+    if (restaurant.id === restaurantId) {
+      // return 실행된 위치로 값반환 후 전체 함수 종료(실행 완료).
+      // {key:value} value는 const restaurant로 if문 조건에 맞게 생성된 객체임
+      return res.render("restaurant-detail", { restaurant: restaurant });
+    }
+    // else {}
+    // ID가 일치하는 세부 데이터가 일부이기때문에
+    // else로 에러 표현 못함, for문밖에서 가능
+  }
+
+  // for문 내 if문에 일치하는 조건이 없었다면
+  // for문을 빠져나와서 아래 문장 실행. (에러핸들링)
+  // stats(404)를 사용해서 실제 네트워크 상태는 404 에러로 설정
+  res.status(404).render("404");
 });
 ```
 
-7. 템플릿에서 조건문을 사용하여 콘텐츠 랜더링 생성 <% %>
+## 반복문 복습 (일반 for, for-of, for-in)
 
-```html
-<main>
-  <h1>Recommended restaurants</h1>
-  <!-- 만약 저장된 레스토랑 정보가 없다면 -->
-  <% if (numberOfRestaurants === 0) { %>
-  <p>
-    Unfortunately, we have no restaurants yet - maybe start recommending some?
-  </p>
-  <!-- 조건이 아닌 경우의 출력 -->
-  <% } else { %>
-  <!-- 저장된 자바스크립트 값 가져오기, 자동으로 데이터(원시 텍스트)로 변환됨,
-    등호(=)는 원시텍스트를 이스케이프하여 HTML 코드로의 해킹을 방지하고, 보안 역할을 함 -->
-  <p>We found <%= numberOfRestaurants %> restaurants.</p>
-  <p>Find your next favorite restaurant with the help of our other users!</p>
-  <ul id="restaurant-list">
-    <% for (const restaurant of restaurants) { %>
-    <article>
-      <!-- 단일값으로 재출력 -->
-      <h2><%= restaurant.name %></h2>
-      <div class="restaurant-meta">
-        <p><%= restaurant.cuisine %></p>
-        <p><%= restaurant.address %></p>
-      </div>
-      <p><%= restaurant.description %></p>
-      <div class="restaurant-actions">
-        <a href="<%=restaurant.website %>">View Website</a>
-      </div>
-    </article>
-    <% } %>
-  </ul>
-  <% } %>
-</main>
+### for-in (객체를 개별 출력)
+
+```JavaScript
+const loggedInUser = {
+  name: 'Max',
+  age: 32,
+  isAdmin: true
+};
+
+for (const propertyName in loggedInUser){ // propertyName = key
+  console.log(propertyName); // name, age, isAdmin 출력됨.
+  console.log(loggedInUser.name); // 여기에선 동작 안함
+  console.log(loggedInUser['name']); // loggedInUser.name과 같은 동작함
+  console.log(loggedInUser[propertyName]); // 순서대로 key, value 값을 하나씩 출력함 (동적 접근)
+ }
+
 ```
 
-8. 일부 공통 콘텐츠 분할 관리 및 재사용 <%- include %>
+### for-of (배열을 개별 출력)
 
-- '-(대쉬)'는 일부 html 내용을 랜더링할 때 사용
-- <%- include('relative-path', {key:value})> | 추가 key/value값 전달도 가능
+```JavaScript
+const users = ['MAx', 'Anna', 'Joel']
+// console.log(users) -> ['MAx', 'Anna', 'Joel']
 
-```html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <!-- 공통된 head 부분을 별도의 파일로 분리 -->
-    <%- include('includes/head') %>
-    <link rel="stylesheet" href="styles/restaurants.css">
-  </head>
-  <body>
-    <!-- 공통된 header, aside 부분을 별도의 파일로 분리 -->
-    <%- include('includes/header') %>
-    <%- include('includes/side-drawer') %>
-    <main>
-      <h1>Recommended restaurants</h1>
-      <% if (numberOfRestaurants === 0) { %>
-        <p>Unfortunatale, we have no restaurants yet - maybe start recommending some?</p>
-        <% } else { %>
-        <p>WE Found <%= numberOfRestaurants %> restaurants.</p> 
-        <p>Find your next favorite restaurants with help of our other users!</p>
-        <ul id="restaurants-list">
-          <% for (const restaurant of restaurants) { %>
-            <!-- include로 key:value 전달 후 for문 list 생성 -->
-            <%- include('includes/restaurants/restaurant-item',{restaurant: restaurant}) %>
-          <% } %>
-        </ul>  
-      <% } %>
-    </main>
-  </body>
-</html>
+// 배열을 개별 요소로 출력하기
+for (const user of users) {
+  console.log(user);
+}
+
+// for-of문이 없었을 때
+for (let 1 = 0; i < users.length; i++){
+ console.log(users[i]);
+}
+```
+
+### 일반 for (특정 횟수 반복)
+
+```JavaScript
+for (let i = 0; i < 10; i++) {
+  console.log(i);
+}
+```
+
+## 에러 핸들링, 상태 코드 작업 (네트워크에러)
+
+- 200(성공), 404,401(클라이언트에러), 500(서버사이드에러)
+- 보기 싫은 에러화면 대체
+- 미들웨어 활용, 처리되지 않은 모든 요청에 대한 처리
+- listen(3000) 바로 전(가장 아래)에 추가 해야 함, 위에서 아래로 처리되는 코드 고려
+- 404.ejs 파일 생성
+
+### 존재하지 않는 경로에 대한 미들웨어 (404 error)
+
+```JavaScript
+ app.use('/admin', function(){}) // 오직 /admin 요청만 처리
+ app.use(function(req, res) { // 이전까지 처리되지 않은 요청들을 여기에서 처리.
+   res.status(404).render('404');
+ })
+```
+
+### 서버측 에러에 대한 미들웨어 (500 error)
+
+- 파일명 변경으로 인한 경로 에러
+- 데이터 속성명 에러 등
+- 500.ejs 파일 생성
+- express 고유 미들웨어, 4개 매개변수 필요
+
+```JavaScript
+  app.use(function(error, req, res, next){
+    res.stats(500).render('500')
+  })
+```
+
+## 코드 리팩토링 (중복되는 코드를 다른 파일의 함수로 관리)
+
+- util폴더/restaurant-data.js 생성 후 중복된 코드 (데이터읽기,쓰기) 정리
+
+```JavaScript
+//*** util 폴더의 restaurant-data.js 코드
+
+// 파일 내부의 필요한 패키지 재요청 필요함.
+const path = require("path");
+const fs = require("fs");
+
+// filePath는 함수밖으로 꺼내서 다른함수들에도 사용
+const filePath = path.join(__dirname, "..", "data", "restaurants.json");
+
+// 파일 데이터 읽기 함수 생성 및 데이터 반환(return)
+function getStoredRestaurants() {
+  const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
+  const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
+
+  return storedRestaurants;
+}
+
+// 파일 데이터 쓰기 함수 생성
+function storeRestaurants(storableRestaurants) {
+  fs.writeFileSync(filePath, JSON.stringify(storableRestaurants)); // push포함 제이슨으로 변환
+}
+
+// **중요 다른 파일로 노출하려는 항목 설정 필요
+module.exports = {
+  getStoredRestaurants: getStoredRestaurants, // key:value
+  // getStoredRestaurants: getStoredRestaurants(), // 함수뒤에 ()를 추가하면 호출 시, 결과가 노출됨
+  storeRestaurants: storeRestaurants,
+};
+```
+
+- app.js 내 코드리팩토링 파일 요청 추가 및 코드 정리
+
+```JavaScript
+//*** app.js 코드
+
+// 내가 만든 파일 가져오기 (코드 리팩토링)
+// 추천 레스토랑 등록 기능 리팩토링
+const resData = require("./util/restaurant-data"); // 전체 경로로 작성해야 함
+
+app.post("/recommend", function (req, res) {
+  const restaurant = req.body;
+  restaurant.id = uuid.v4();
+
+  // // 중복되는 기능이므로, utill로 빼서 사용
+  // // 6) res.redirect (폼 제출 후 페이지 이동)
+  // const filePath = path.join(__dirname, "data", "restaurants.json"); // 경로생성 required('path')
+  // const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
+  // const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
+  // const filePath가 빠졌으므로 아래 문장은 작동 못하므로, utill로 같이 뺌.
+  // fs.writeFileSync(filePath, JSON.stringify(storedRestaurants)); // push포함 제이슨으로 변환
+  // utill로 뺴서 아래로 문장으로 대체
+
+  const restaurants = resData.getStoredRestaurants(); // 코드리팩토링 함수 호출
+  restaurants.push(restaurant); // 변환한 자바데이터로 push
+  resData.storeRestaurants(restaurants); // 코드리팩토링 함수 호출
+
+  res.redirect("/confirm");
+});
+
+// 코드 리팩토링
+// 등록된 레스토랑을 list로 출력 (length로 사용)
+app.get("/restaurants", function (req, res) {
+  // // 코드 리팩토링
+  // const filePath = path.join(__dirname, "data", "restaurants.json"); // 경로생성 required('path')
+  // const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
+  // const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
+
+  const storedRestaurants = resData.getStoredRestaurants(); // 코드리팩토링 함수 호출
+
+  res.render("restaurants", {
+    numberOfRestaurants: storedRestaurants.length, // restaurants.ejs의 <= numberOfRestaurants >
+    restaurants: storedRestaurants,
+  });
+});
+
+// 코드 리팩토링
+// 레스토랑 세부데이터 로드 &  동적 라우터 설정(/:id)
+app.get("/restaurants/:id", function (req, res) {
+  const restaurantId = req.params.id;
+
+  // // 코드 리팩토링
+  // // 세부데이터 로드, 에러페이지(404) 표시
+  // // 1) 데이터파일읽기
+  // const filePath = path.join(__dirname, "data", "restaurants.json"); // 경로생성 required('path')
+  // const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
+  // const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
+
+  const storedRestaurants = resData.getStoredRestaurants(); // 코드리팩토링 함수 호출
+
+  // 해당 레스토랑의 id가 일치, 세부데이터 로드
+  for (const restaurant of storedRestaurants) {
+    if (restaurant.id === restaurantId) {
+      // return 실행된 위치로 값반환 후 전체 함수 종료(실행 완료).
+      // {key:value} value는 const restaurant로 if문 조건에 맞게 생성된 객체임
+      return res.render("restaurant-detail", { restaurant: restaurant });
+    }
+    // else {}
+    // 세부 데이터 없을 시, else로 에러 표현 못함, for문밖에서 가능
+  }
+
+  //404.ejs 생성 후 표기.
+  res.status(404).render("404");
+});
 ```

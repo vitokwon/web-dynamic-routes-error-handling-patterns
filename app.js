@@ -6,11 +6,18 @@
 // JSON 세부 데이터 로드 (ID별)
 // 404 에러 페이지 생성 (세부데이터 없을시, 잘못된경로)
 // 500 에러 페이지 생성 (서버사이드 에러, json파일경로에러(이름오기재) 등)
+// 코드 리팩토링 (중복된 데이터가져오기 코드를 utill에서 새 함수 생성)
 
+// 내장 패키지
 const fs = require("fs");
 const path = require("path");
+
+// 타사패키지
 const express = require("express");
 const uuid = require("uuid"); // 동적라우터 고유ID 생성 패키지
+
+// 내가 만든 파일 가져오기 (코드 리팩토링)
+const resData = require("./util/restaurant-data"); // 전체 경로로 작성해야 함
 
 const app = express();
 
@@ -40,9 +47,12 @@ app.get("/", function (req, res) {
 
 // 실제 등록된 레스토랑을 list로 출력하기 (length로 사용)
 app.get("/restaurants", function (req, res) {
-  const filePath = path.join(__dirname, "data", "restaurants.json"); // 경로생성 required('path')
-  const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
-  const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
+  // // 코드 리팩토링
+  // const filePath = path.join(__dirname, "data", "restaurants.json"); // 경로생성 required('path')
+  // const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
+  // const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
+
+  const storedRestaurants = resData.getStoredRestaurants();
 
   res.render("restaurants", {
     numberOfRestaurants: storedRestaurants.length, // ejs파일의 <%= numberOfRestaurants %>
@@ -54,11 +64,14 @@ app.get("/restaurants", function (req, res) {
 app.get("/restaurants/:id", function (req, res) {
   const restaurantId = req.params.id;
 
-  // 세부데이터 로드, 에러페이지(404) 표시
-  // 1) 데이터파일읽기
-  const filePath = path.join(__dirname, "data", "restaurants.json"); // 경로생성 required('path')
-  const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
-  const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
+  // // 코드 리팩토링
+  // // 세부데이터 로드, 에러페이지(404) 표시
+  // // 1) 데이터파일읽기
+  // const filePath = path.join(__dirname, "data", "restaurants.json"); // 경로생성 required('path')
+  // const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
+  // const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
+
+  const storedRestaurants = resData.getStoredRestaurants();
 
   // 해당 레스토랑의 id가 일치, 세부데이터 로드
   for (const restaurant of storedRestaurants) {
@@ -86,21 +99,30 @@ app.get("/recommend", function (req, res) {
 // 3) JSON.parse (읽은 데이터 자바로 변환)
 // 4) push (변환된 데이터 안으로 req.body push)
 // 5) writeFileSync(filePath, JSON.stringify()) (제이슨으로 데이터 변환 후 쓰기)
+// 6) 코드리팩토링 (일부 중복 코드를 utill로 빼내서 재사용)
 app.post("/recommend", function (req, res) {
   // 폼 사용자 입력값(req.body)를 통째로 먼저 저장
   // 구문분석 미들웨어 필요 app.use(express.urlencoded({extended: false}))
-  const restaurant = req.body; 
+  const restaurant = req.body;
 
   // 동적라우터 고유 id만들기 (required('uuid))
   // 존재하지 않는 id property(속성)에 접근 및 property(속성) 생성 (JavaScript 지원 기능)
   restaurant.id = uuid.v4();
 
-  // 6) res.redirect (폼 제출 후 페이지 이동)
-  const filePath = path.join(__dirname, "data", "restaurants.json"); // 경로생성 required('path')
-  const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
-  const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
-  storedRestaurants.push(restaurant); // 변환한 자바데이터로 push
-  fs.writeFileSync(filePath, JSON.stringify(storedRestaurants)); // push포함 제이슨으로 변환
+  // // 중복되는 기능이므로, utill로 빼서 사용
+  // // 6) res.redirect (폼 제출 후 페이지 이동)
+  // const filePath = path.join(__dirname, "data", "restaurants.json"); // 경로생성 required('path')
+  // const fileData = fs.readFileSync(filePath); // 파일 읽기, required('fs')
+  // const storedRestaurants = JSON.parse(fileData); // 읽은 데이터 자바로 변환
+  // utill로 빼서 아래 문장으로 대체
+  const restaurants = resData.getStoredRestaurants(); // 데이터 읽기 함수
+
+  restaurants.push(restaurant); // 변환한 자바데이터로 push
+
+  // const filePath가 빠졌으므로 아래 문장은 작동 못하므로, utill로 같이 뺌.
+  // fs.writeFileSync(filePath, JSON.stringify(storedRestaurants)); // push포함 제이슨으로 변환
+  // utill로 뺴서 아래로 문장으로 대체
+  resData.storeRestaurants(restaurants); // 데이터 저장 함수
 
   res.redirect("/confirm");
 });
