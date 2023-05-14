@@ -2,29 +2,36 @@
 <html lang="en">
   <head>
     <%- include('includes/head') %>
-    <link rel="stylesheet" href="styles/restaurants.css">
+    <link rel="stylesheet" href="styles/restaurants.css" />
   </head>
   <body>
-    <%- include('includes/header') %>
-    <%- include('includes/side-drawer') %>
+    <%- include('includes/header') %> <%- include('includes/side-drawer') %>
     <main>
       <h1>Recommended restaurants</h1>
       <!-- EJS 구문 사용하기 -->
       <!-- if문 사용 조건 생성 -->
       <% if (numberOfRestaurants === 0) { %>
-        <p>Unfortunatale, we have no restaurants yet - maybe start recommending some?</p>
-        <% } else { %>
-        <!-- 저장된 자바값 가져오기, 자동 데이터(원시 텍스트) 변환
+      <p>
+        Unfortunatale, we have no restaurants yet - maybe start recommending
+        some?
+      </p>
+      <% } else { %>
+      <!-- 저장된 자바값 가져오기, 자동 데이터(원시 텍스트) 변환
               등호(=)는 원시텍스트로 바꾸어 html코드로 해킹방지, 보안역할도 함. 이스케이프-->
-        <p>WE Found <%= numberOfRestaurants %> restaurants.</p>
-        <p>Find your next favorite restaurants with help of our other users!</p>
-        <ul id="restaurants-list">
-          <!-- for문 사용 객체 출력 -->
-          <% for (const restaurant of restaurants) { %>
-            <!-- restaurant-item.ejs로 빼내기, for문객체도 같이 보내줘야 함. -->
-            <%- include('includes/restaurants/restaurant-item',{restaurant: restaurant}) %>
-          <% } %>
-        </ul>  
+      <p>WE Found <%= numberOfRestaurants %> restaurants.</p>
+      <p>Find your next favorite restaurants with help of our other users!</p>
+      <!-- 쿼리 매개변수 설정 -->
+      <form action="/restaurants" method="GET">
+        <input type="hidden" value="<%= nextOrder %>" name="order">
+        <button class="btn">change Order</button>
+      </form>
+      <ul id="restaurants-list">
+        <!-- for문 사용 객체 출력 -->
+        <% for (const restaurant of restaurants) { %>
+        <!-- restaurant-item.ejs로 빼내기, for문객체도 같이 보내줘야 함. -->
+        <%- include('includes/restaurants/restaurant-item',{restaurant:
+        restaurant}) %> <% } %>
+      </ul>
       <% } %>
     </main>
   </body>

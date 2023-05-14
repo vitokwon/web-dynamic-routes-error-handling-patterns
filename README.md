@@ -23,7 +23,7 @@ app.get("/restaurants/:id", function (req, res) {
 <h1>TITLE OF THE RESTAURANT <%= rid %></h1>
 ```
 
-## 각 데이터의 고유 ID 생성, 동적라우터 연결
+2. 각 데이터의 고유 ID 생성, 동적라우터 연결
 
 - 'npm install uuid' : uuid 패키지 설치 (고유 ID 생성기)
 - 'const uuid = require('uuid') : 설치한 패키지 추가
@@ -288,4 +288,138 @@ app.get("/restaurants/:id", function (req, res) {
   //404.ejs 생성 후 표기.
   res.status(404).render("404");
 });
+```
+
+## 라우터 분할
+
+- routes 폴더 생성 후 default.js , restaurants.js 생성
+- default.js에서 express, router 요청
+  - app.get을 router.get로 변경
+  - moudle.exports = router;로 app.js로 노출
+
+```JavaScript
+// default.js
+// 라우터 분할
+// app.get을 router.get 으로 변경
+
+const express = require('express');
+
+const router = express.Router();
+
+router.get("/", function (req, res) {
+    res.render("index");
+  });
+
+router.get("/about", function (req, res) {
+    res.render("about");
+  });
+
+  module.exports = router;
+```
+
+- app.js에서 default.js로 옮겨진 해당 라우터는 삭제
+- 라우터 연결 미들웨어 설정
+
+```JavaScript
+// app.js
+// 외부 파일 호출 (외부파일 내부에 module.exports 가 있어야함.)
+const defaultRoutes = require("./routes/default");
+const restaurantRoutes = require("./routes/restaurants");
+
+// 라우터 분할 미들웨어
+app.use("/", defaultRoutes); // 모든 경로('/')에 대해 defaultRoutes로 연결시킴
+// app.use("/restaurants", restaurantRoutes); // 경로 앞에 '/restaurants'가 추가 됨
+app.use("/", restaurantRoutes);
+
+// 옮겨진 해당 라우터들은 삭제
+// router.get("/", function (req, res) {
+//     res.render("index");
+//   });
+
+// router.get("/about", function (req, res) {
+//     res.render("about");
+//   });
+```
+
+- restaurants.js 분할 라우터에서 사용하는 패키지(uuid) 요청 필요
+- app.js에서는 해당 패키지 삭제
+
+```javascript
+const express = require("express");
+const uuid = require("uuid"); // app.js에서 라우터 분할로 이동
+
+// app.js에서 라우터분할로 restaurants.js로 이동
+// 내가 만든 파일 가져오기 (코드 리팩토링)
+const resData = require("../util/restaurant-data"); // 전체 경로로 작성해야 함
+
+const router = express.Router();
+
+router.get("/restaurants", function (req, res) {
+  const storedRestaurants = resData.getStoredRestaurants();
+
+  res.render("restaurants", {
+    numberOfRestaurants: storedRestaurants.length,
+    restaurants: storedRestaurants,
+  });
+});
+
+router.get("/restaurants/:id", function (req, res) {
+  const restaurantId = req.params.id;
+
+  const storedRestaurants = resData.getStoredRestaurants();
+
+  for (const restaurant of storedRestaurants) {
+    if (restaurant.id === restaurantId) {
+      return res.render("restaurant-detail", { restaurant: restaurant });
+    }
+  }
+
+  res.status(404).render("404");
+});
+
+router.get("/recommend", function (req, res) {
+  res.render("recommend");
+});
+
+router.post("/recommend", function (req, res) {
+  const restaurant = req.body;
+
+  restaurant.id = uuid.v4();
+  const restaurants = resData.getStoredRestaurants();
+
+  restaurants.push(restaurant);
+
+  resData.storeRestaurants(restaurants);
+
+  res.redirect("/confirm");
+});
+
+router.get("/confirm", function (req, res) {
+  res.render("confirm");
+});
+
+module.exports = router;
+```
+
+## 쿼리 매개변수와 라우트 매개변수의 차이
+
+### 동적 라우트의 라우트 매개변수
+
+- 'router,get('/restaurants/:id',)
+- :id 값에 따라 라우트 경로가 결정
+- :id 값 없이 작동하지 않음
+
+### 쿼리 매개변수와 <input type="hidden">
+
+- 쿼리 매개변수는 선택사항
+- url 경로에 추가 정보를 추가하여 사용
+- '/restaurants?order=asc'
+- order이라는 변수에 asc라는 값이 추가됨
+
+```html ejs
+<!-- 쿼리 매개변수 설정 restaurants.ejs -->
+<form action="/restaurants" method="GET">
+  <input type="hidden" value="<%= nextOrder %>" name="order" />
+  <button class="btn">change Order</button>
+</form>
 ```
